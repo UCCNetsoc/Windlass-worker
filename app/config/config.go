@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func LoadConfig() error {
+func Load() error {
 	InitDefaults()
 	initFlags()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
