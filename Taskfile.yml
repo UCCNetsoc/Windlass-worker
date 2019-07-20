@@ -1,0 +1,16 @@
+version: '2'
+tasks:
+  debug:
+    cmds:
+      - bash ./cmd/debug.sh
+    sources:
+      - ./app/**/*.go
+  live-reload:
+    cmds:
+      - ps -ef | grep go-build | grep -v grep | awk '{print $2}' | xargs -r kill
+      - go run cmd/main.go
+    sources:
+      - app/**/*.go
+      - cmd/**/*.go
+      - middleware/**/*.go
+      - utils/**/*.go
