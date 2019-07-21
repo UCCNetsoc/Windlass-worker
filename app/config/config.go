@@ -16,7 +16,6 @@ func Load() error {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
-	printSettings()
 	return nil
 }
 
@@ -30,9 +29,11 @@ func initFlags() {
 	}
 }
 
-func printSettings() {
+func PrintSettings() {
 	// Print settings with secrets redacted
 	settings := viper.AllSettings()
+	settings["windlass"].(map[string]interface{})["secret"] = "[redacted]"
+
 	out, _ := json.MarshalIndent(settings, "", "\t")
 	log.Debug("config:\n%s", string(out))
 }

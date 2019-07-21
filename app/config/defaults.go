@@ -11,6 +11,15 @@ import (
 func InitDefaults() {
 	viper.SetDefault("http.port", "9786")
 	viper.SetDefault("http.address", getFQDN())
+
+	// Consul settings
+	viper.SetDefault("consul.host", "127.0.0.1:8500")
+	viper.SetDefault("consul.token", "") // ACL token
+	viper.SetDefault("consul.path", "windlass")
+
+	// Vault settings
+	viper.SetDefault("vault.enabled", false) // If enabled, gets dynamic secret to access Consul from Vault
+	viper.SetDefault("vault.token", "")
 }
 
 // TODO: Add random number to 'unknown' state

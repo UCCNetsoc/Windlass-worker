@@ -13,7 +13,7 @@ import (
 
 type Connections struct {
 	lxd    lxd.ContainerServer
-	consul *consul.Client
+	consul *consulProvider.Provider
 	vault  *vault.Client
 }
 
@@ -23,6 +23,10 @@ func EstablishConnections() error {
 	var err error
 
 	if _, err = GetConsul(); err != nil {
+		return err
+	}
+
+	if err := group.consul.GetAndSetSharedSecret(); err != nil {
 		return err
 	}
 
@@ -38,13 +42,14 @@ func Close() {
 
 }
 
-func GetConsul() (*consul.Client, error) {
+func GetConsul() (*consulProvider.Provider, error) {
 	if group.consul != nil {
 		return group.consul, nil
 	}
 
 	config := consul.Config{
 		Address: viper.GetString("consul.host"),
+		Token:   viper.GetString("consul.token"),
 	}
 
 	provider, err := consulProvider.NewProvider(&config)
@@ -56,7 +61,7 @@ func GetConsul() (*consul.Client, error) {
 		return nil, NewConnectionError(err, "Consul")
 	}
 
-	group.consul = provider.Client()
+	group.consul = provider
 
 	return group.consul, nil
 }

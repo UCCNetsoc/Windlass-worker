@@ -37,10 +37,6 @@ func NewProvider(conf *api.Config) (*Provider, error) {
 	}, nil
 }
 
-func (p *Provider) Client() *api.Client {
-	return p.client
-}
-
 // Register registers the worker and its associated projects with Consul.
 // See registerWorker() and registerProjects() for specific details
 func (p *Provider) Register() error {
@@ -117,4 +113,19 @@ func (p *Provider) getIP() (string, error) {
 		}
 	}
 	return "", errors.New("couldnt find IP")
+}
+
+func (p *Provider) GetAndSetSharedSecret() error {
+	path := viper.GetString("consul.path") + "/secret"
+	kv, _, err := p.client.KV().Get(path, &api.QueryOptions{})
+	if err != nil {
+		return err
+	}
+
+	if kv == nil {
+		return errors.New(fmt.Sprintf("key %s not set", path))
+	}
+
+	viper.Set("windlass.secret", kv.Value)
+	return nil
 }
