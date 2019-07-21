@@ -4,6 +4,10 @@ go 1.12
 
 require (
 	github.com/bwmarrin/lit v0.0.0-20190510005413-9c5ce4f3cafc
+	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/docker/docker v1.13.1 // indirect
+	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/go-units v0.4.0 // indirect
 	github.com/flosch/pongo2 v0.0.0-20190707114632-bbf5a6c351f4 // indirect
 	github.com/go-check/check v1.0.0-20180628173108-788fd7840127 // indirect
 	github.com/go-chi/chi v4.0.2+incompatible
@@ -17,6 +21,7 @@ require (
 	github.com/juju/version v0.0.0-20180108022336-b64dbd566305 // indirect
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb // indirect
 	github.com/lxc/lxd v0.0.0-20190717210919-0ecd38c37220
+	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/pelletier/go-toml v1.3.0 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/spf13/afero v1.2.2 // indirect
