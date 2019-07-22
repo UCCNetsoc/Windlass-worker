@@ -2,6 +2,7 @@ package project
 
 import (
 	"errors"
+	"net/http"
 	"regexp"
 
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/models/container"
@@ -22,7 +23,7 @@ type Project struct {
 	Containers container.Containers `json:"containers"`
 }
 
-func (p Project) Validate() error {
+func (p *Project) Bind(r *http.Request) error {
 	if !projectName.MatchString(p.Namespace + "_" + p.Name) {
 		return ErrInvalidFormat
 	}

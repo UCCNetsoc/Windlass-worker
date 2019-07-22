@@ -30,6 +30,6 @@ func main() {
 	log.Info("API server started")
 
 	if err := http.ListenAndServe(":"+viper.GetString("http.port"), r); err != nil {
-		log.Error(err, "error starting server")
+		log.WithError(err).Error("error starting server")
 	}
 }

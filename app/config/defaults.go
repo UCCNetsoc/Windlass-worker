@@ -10,7 +10,8 @@ import (
 
 func InitDefaults() {
 	viper.SetDefault("http.port", "9786")
-	viper.SetDefault("http.address", getFQDN())
+	viper.SetDefault("http.hostname", getFQDN())
+	viper.SetDefault("http.address", getOutboundIP().String())
 
 	// Consul settings
 	viper.SetDefault("consul.host", "127.0.0.1:8500")
@@ -49,4 +50,16 @@ func getFQDN() string {
 		}
 	}
 	return hostname
+}
+
+func getOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return nil
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP
 }

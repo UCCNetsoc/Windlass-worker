@@ -3,8 +3,8 @@ package consul
 import (
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/UCCNetworkingSociety/Windlass-worker/utils/logging"
@@ -22,6 +22,8 @@ type Provider struct {
 	deregisterCritical time.Duration
 	ttl                time.Duration
 	refreshTTL         time.Duration
+	ttlError           error
+	secretGetRetry     int
 }
 
 func NewProvider(conf *api.Config) (*Provider, error) {
@@ -31,9 +33,10 @@ func NewProvider(conf *api.Config) (*Provider, error) {
 	}
 
 	return &Provider{
-		client:     client,
-		ttl:        time.Second * 10,
-		refreshTTL: time.Second * 5,
+		client:         client,
+		ttl:            time.Second * 10,
+		refreshTTL:     time.Second * 5,
+		secretGetRetry: 5,
 	}, nil
 }
 
@@ -87,8 +90,16 @@ func (p *Provider) udpateWorkerTTL() {
 	go func() {
 		ticker := time.NewTicker(p.ttl / 2)
 		for range ticker.C {
-			if err := p.client.Agent().UpdateTTL("service:"+p.id, "cool and well", api.HealthPassing); err != nil {
-				log.Error(err, "failed to update TTL")
+			health := api.HealthPassing
+			if viper.GetString("windlass.secret") == "" {
+				health = api.HealthCritical
+			}
+
+			err := p.client.Agent().UpdateTTL("service:"+p.id, "", health)
+			p.ttlError = err
+			if err != nil {
+				p.onFailedTTL()
+				log.WithError(err).Error("failed to update TTL")
 			}
 		}
 	}()
@@ -99,33 +110,42 @@ func (p *Provider) updateProjectTTL() {
 
 }
 
-func (p *Provider) getIP() (string, error) {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return "", err
+func (p *Provider) GetAndSetSharedSecret() error {
+	fn := func() error {
+		path := viper.GetString("consul.path") + "/secret"
+		kv, _, err := p.client.KV().Get(path, &api.QueryOptions{})
+		if err != nil {
+			return err
+		}
+
+		if kv == nil {
+			return errors.New(fmt.Sprintf("key %s not set", path))
+		}
+
+		viper.Set("windlass.secret", kv.Value)
+		return nil
 	}
 
-	for _, a := range addrs {
-		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String(), nil
-			}
+	count := p.secretGetRetry
+	var err error
+	for ; count > 0; count-- {
+		err = fn()
+		if err == nil {
+			return nil
 		}
+		log.WithFields(log.Fields{
+			"limit": p.secretGetRetry,
+			"count": count,
+		}).WithError(err).Error("failed to get shared secret")
+		time.Sleep(time.Second * 3)
 	}
-	return "", errors.New("couldnt find IP")
+	return err
 }
 
-func (p *Provider) GetAndSetSharedSecret() error {
-	path := viper.GetString("consul.path") + "/secret"
-	kv, _, err := p.client.KV().Get(path, &api.QueryOptions{})
-	if err != nil {
-		return err
+func (p *Provider) onFailedTTL() error {
+	if strings.HasSuffix(p.ttlError.Error(), "does not have associated TTL)") {
+		return p.registerWorker()
 	}
 
-	if kv == nil {
-		return errors.New(fmt.Sprintf("key %s not set", path))
-	}
-
-	viper.Set("windlass.secret", kv.Value)
 	return nil
 }
