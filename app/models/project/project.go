@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/models/container"
 )
@@ -18,13 +19,15 @@ var (
 )
 
 type Project struct {
-	Name       string               `json:"name"`
-	Namespace  string               `json:"namespace"`
-	Containers container.Containers `json:"containers"`
+	Name         string               `json:"name"`
+	Namespace    string               `json:"namespace"`
+	Containers   container.Containers `json:"containers"`
+	CreationDate time.Time            `json:"createdAt"`
+	UpdatedDate  time.Time            `json:"updatedAt"`
 }
 
 func (p *Project) Bind(r *http.Request) error {
-	if !projectName.MatchString(p.Namespace + "_" + p.Name) {
+	if !projectName.MatchString(p.Namespace + "-" + p.Name) {
 		return ErrInvalidFormat
 	}
 

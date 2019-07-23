@@ -12,7 +12,7 @@ require (
 	github.com/flosch/pongo2 v0.0.0-20190707114632-bbf5a6c351f4 // indirect
 	github.com/go-check/check v1.0.0-20180628173108-788fd7840127 // indirect
 	github.com/go-chi/chi v4.0.2+incompatible
-	github.com/go-chi/render v1.0.1 // indirect
+	github.com/go-chi/render v1.0.1
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/hashicorp/consul/api v1.1.0
