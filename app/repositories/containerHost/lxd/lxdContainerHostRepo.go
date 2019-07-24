@@ -48,6 +48,20 @@ func (lxd *LXDHost) CreateContainerHost(context context.Context, opts host.Conta
 	}).Debug("create container host request")
 
 	op, err := lxd.conn.CreateContainer(api.ContainersPost{
+		ContainerPut: api.ContainerPut{
+			Devices: map[string]map[string]string{
+				"eth0": map[string]string{
+					"type":         "nic",
+					"nictype":      "bridged",
+					"name":         "eth0",
+					"parent":       "windlassbr0",
+					"ipv4.address": "10.69.1.5", // sample data
+				},
+			},
+			Config: map[string]string{
+				"security.nesting": "true",
+			},
+		},
 		Name: opts.Name,
 		Source: api.ContainerSource{
 			Type:        "image",

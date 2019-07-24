@@ -26,8 +26,12 @@ type Project struct {
 	UpdatedDate  time.Time            `json:"updatedAt"`
 }
 
+func (p Project) HostName() string {
+	return p.Namespace + "-" + p.Name
+}
+
 func (p *Project) Bind(r *http.Request) error {
-	if !projectName.MatchString(p.Namespace + "-" + p.Name) {
+	if !projectName.MatchString(p.HostName()) {
 		return ErrInvalidFormat
 	}
 

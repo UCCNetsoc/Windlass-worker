@@ -13,6 +13,10 @@ func InitDefaults() {
 	viper.SetDefault("http.hostname", getFQDN())
 	viper.SetDefault("http.address", getOutboundIP().String())
 
+	viper.SetDefault("containerHost.type", "lxd")
+
+	viper.SetDefault("lxd.baseImage", "385688d87650") // sample image
+
 	// Consul settings
 	viper.SetDefault("consul.host", "127.0.0.1:8500")
 	viper.SetDefault("consul.token", "") // ACL token

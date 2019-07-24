@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 
+	v1 "github.com/UCCNetworkingSociety/Windlass-worker/app/api/v1"
+
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/api/models"
 	"github.com/go-chi/render"
 
@@ -34,6 +36,6 @@ func (api *API) Init() {
 	})
 
 	api.routes.Route("/v1", func(r chi.Router) {
-
+		v1.NewProjectEndpoints(r)
 	})
 }
