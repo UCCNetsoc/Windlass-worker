@@ -3,7 +3,7 @@ module github.com/UCCNetworkingSociety/Windlass-worker
 go 1.12
 
 require (
-	github.com/bwmarrin/lit v0.0.0-20190510005413-9c5ce4f3cafc
+	github.com/Strum355/log v1.0.1
 	github.com/flosch/pongo2 v0.0.0-20190707114632-bbf5a6c351f4 // indirect
 	github.com/go-check/check v1.0.0-20180628173108-788fd7840127 // indirect
 	github.com/go-chi/chi v4.0.2+incompatible
@@ -23,6 +23,7 @@ require (
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.4.0
+	github.com/stretchr/testify v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 // indirect
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7 // indirect
 	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7 // indirect

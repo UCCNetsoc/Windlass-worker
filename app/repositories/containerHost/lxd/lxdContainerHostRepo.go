@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/spf13/viper"
+	"github.com/Strum355/log"
 
-	log "github.com/UCCNetworkingSociety/Windlass-worker/utils/logging"
+	"github.com/spf13/viper"
 
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/connections"
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/helpers"
@@ -50,7 +50,7 @@ func (lxd *LXDHost) CreateContainerHost(context context.Context, opts host.Conta
 	op, err := lxd.conn.CreateContainer(api.ContainersPost{
 		ContainerPut: api.ContainerPut{
 			Devices: map[string]map[string]string{
-				"eth0": map[string]string{
+				"eth0": {
 					"type":         "nic",
 					"nictype":      "bridged",
 					"name":         "eth0",

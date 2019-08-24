@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/UCCNetworkingSociety/Windlass-worker/utils/logging"
+	"github.com/Strum355/log"
 
 	"github.com/spf13/viper"
 
@@ -71,7 +71,7 @@ func (p *Provider) registerWorker() error {
 		Port:    p.port,
 		Check: &api.AgentServiceCheck{
 			DeregisterCriticalServiceAfter: p.deregisterCritical.String(),
-			TTL:                            p.ttl.String(),
+			TTL: p.ttl.String(),
 		},
 	}
 

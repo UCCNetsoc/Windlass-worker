@@ -7,7 +7,7 @@ import (
 
 	lxd "github.com/lxc/lxd/client"
 
-	log "github.com/UCCNetworkingSociety/Windlass-worker/utils/logging"
+	"github.com/Strum355/log"
 	"github.com/spf13/viper"
 )
 

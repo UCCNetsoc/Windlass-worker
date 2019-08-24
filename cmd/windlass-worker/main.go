@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	log "github.com/UCCNetworkingSociety/Windlass-worker/utils/logging"
+	"github.com/Strum355/log"
 
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/api"
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/connections"
