@@ -1,8 +1,9 @@
-package lxd
+package host
 
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Strum355/log"
 
@@ -10,7 +11,6 @@ import (
 
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/connections"
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/helpers"
-	host "github.com/UCCNetworkingSociety/Windlass-worker/app/repositories/containerHost"
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 )
@@ -21,7 +21,7 @@ type LXDHost struct {
 }
 
 // TODO context tiemouts
-func NewLXDRepository() host.ContainerHostRepository {
+func NewLXDRepository() ContainerHostRepository {
 	lxdHost, err := connections.GetLXD()
 	if err != nil {
 		panic(fmt.Sprintf("error getting LXD host: %v", err))
@@ -33,7 +33,7 @@ func NewLXDRepository() host.ContainerHostRepository {
 	}
 }
 
-func (lxd *LXDHost) WithContext(ctx context.Context) host.ContainerHostRepository {
+func (lxd *LXDHost) WithContext(ctx context.Context) ContainerHostRepository {
 	lxd.ctx = ctx
 	return lxd
 }
@@ -42,7 +42,14 @@ func (lxd *LXDHost) Ping() error {
 	return nil
 }
 
-func (lxd *LXDHost) CreateContainerHost(context context.Context, opts host.ContainerHostCreateOptions) error {
+func (lxd *LXDHost) parseError(err error) error {
+	if strings.HasSuffix(err.Error(), "This container already exists") {
+		return ErrHostExists
+	}
+	return err
+}
+
+func (lxd *LXDHost) CreateContainerHost(context context.Context, opts ContainerHostCreateOptions) error {
 	log.WithFields(log.Fields{
 		"containerHostName": opts.Name,
 	}).Debug("create container host request")
@@ -69,14 +76,14 @@ func (lxd *LXDHost) CreateContainerHost(context context.Context, opts host.Conta
 		},
 	})
 	if err != nil {
-		return err
+		return lxd.parseError(err)
 	}
 
 	err = helpers.OperationTimeout(lxd.ctx, op)
-	return err
+	return lxd.parseError(err)
 }
 
-func (lxd *LXDHost) StartContainerHost(context context.Context, opts host.ContainerHostCreateOptions) error {
+func (lxd *LXDHost) StartContainerHost(context context.Context, opts ContainerHostCreateOptions) error {
 	op, err := lxd.conn.UpdateContainerState(opts.Name, api.ContainerStatePut{
 		Action:  "start",
 		Timeout: -1,

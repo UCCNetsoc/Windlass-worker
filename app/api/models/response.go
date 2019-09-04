@@ -7,19 +7,17 @@ import (
 )
 
 type APIResponse struct {
-	Status  int         `json:"status"`
-	Content interface{} `json:"content"`
+	Status  int
+	Content interface{}
 }
 
 type apiResponse struct {
-	Status  int         `json:"status"`
 	Content interface{} `json:"content"`
 	Time    time.Time   `json:"time"`
 }
 
 func (resp APIResponse) MarshalJSON() ([]byte, error) {
 	timed := apiResponse{
-		Status:  resp.Status,
 		Content: resp.Content,
 		Time:    time.Now(),
 	}

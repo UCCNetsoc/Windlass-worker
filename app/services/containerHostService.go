@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	host "github.com/UCCNetworkingSociety/Windlass-worker/app/repositories/containerHost"
-	"github.com/UCCNetworkingSociety/Windlass-worker/app/repositories/containerHost/lxd"
 	"github.com/spf13/viper"
 )
 
@@ -14,17 +13,17 @@ type ContainerHostService struct {
 }
 
 func NewContainerHostService() *ContainerHostService {
-	host := &ContainerHostService{}
+	hostService := &ContainerHostService{}
 
 	provider := viper.GetString("containerHost.type")
 
 	if provider == "lxd" {
-		host.repo = lxd.NewLXDRepository()
+		hostService.repo = host.NewLXDRepository()
 	} else {
 		panic(fmt.Sprintf("invalid container host %s", provider))
 	}
 
-	return host
+	return hostService
 }
 
 func (service *ContainerHostService) WithContext(ctx context.Context) *ContainerHostService {

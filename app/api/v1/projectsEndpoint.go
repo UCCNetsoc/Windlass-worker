@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"github.com/UCCNetworkingSociety/Windlass-worker/app/repositories/containerHost"
 	"net/http"
 	"time"
 
@@ -40,6 +41,13 @@ func (p *ProjectEndpoint) createProject(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := p.hostService.CreateHost(r.Context(), newProject.HostName()); err != nil {
+		if err, ok := err.(host.Error); ok {
+			render.Render(w, r, models.APIResponse{
+				Status:  err.StatusCode,
+				Content: err.Error(),
+			})
+			return
+		}
 		render.Render(w, r, models.APIResponse{
 			Status:  http.StatusInternalServerError,
 			Content: err.Error(),

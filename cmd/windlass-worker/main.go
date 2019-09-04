@@ -19,6 +19,10 @@ import (
 func main() {
 	r := chi.NewRouter()
 
+	log.InitSimpleLogger(&log.Config{
+		LogLevel: log.LogDebug,
+	})
+
 	must.Do(config.Load)
 
 	must.Do(connections.EstablishConnections)
