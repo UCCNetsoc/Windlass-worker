@@ -1,9 +1,10 @@
 package v1
 
 import (
-	"github.com/UCCNetworkingSociety/Windlass-worker/app/repositories/containerHost"
 	"net/http"
 	"time"
+
+	host "github.com/UCCNetworkingSociety/Windlass-worker/app/repositories/containerHost"
 
 	"github.com/UCCNetworkingSociety/Windlass-worker/middleware"
 
