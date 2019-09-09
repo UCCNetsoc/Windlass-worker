@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+const (
+	tenYears = time.Hour * 24 * 365 * 10
+)
+
 type PEMContainer struct {
 	CAPEM, ServerKeyPEM, ServerCertPEM, ClientKeyPEM, ClientCertPEM []byte
 }
@@ -21,8 +25,8 @@ type TLSCertService struct {
 	serverCertTemplate *x509.Certificate
 }
 
-func NewTLSCertService(serverIP string) *TLSCertService {
-	return &TLSCertService{serverIP: serverIP}
+func NewTLSCertService() *TLSCertService {
+	return &TLSCertService{}
 }
 
 func (t *TLSCertService) certificateTemplate() *x509.Certificate {
@@ -33,7 +37,7 @@ func (t *TLSCertService) certificateTemplate() *x509.Certificate {
 		SerialNumber:          serialNumber,
 		SignatureAlgorithm:    x509.SHA256WithRSA,
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(((time.Hour) * 365) * 10),
+		NotAfter:              time.Now().Add(tenYears),
 		BasicConstraintsValid: true,
 		IPAddresses:           []net.IP{net.ParseIP(t.serverIP)},
 	}
@@ -86,7 +90,8 @@ func (t *TLSCertService) generateTLSCertPEM(certPEM, keyPEM []byte) ([]byte, err
 	return pem.EncodeToMemory(&tlsCertBlock), nil
 }
 
-func (t *TLSCertService) CreatePEMs() (*PEMContainer, error) {
+func (t *TLSCertService) CreatePEMs(serverIP string) (*PEMContainer, error) {
+	t.serverIP = serverIP
 	t.generateCertTemplates()
 
 	// Create Server Key PEM file for server side

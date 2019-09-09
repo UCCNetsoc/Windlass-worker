@@ -9,11 +9,14 @@ import (
 )
 
 type ContainerHostService struct {
-	repo host.ContainerHostRepository
+	repo       host.ContainerHostRepository
+	tlsService *TLSCertService
 }
 
 func NewContainerHostService() *ContainerHostService {
-	hostService := &ContainerHostService{}
+	hostService := &ContainerHostService{
+		tlsService: NewTLSCertService(),
+	}
 
 	provider := viper.GetString("containerHost.type")
 
@@ -24,11 +27,6 @@ func NewContainerHostService() *ContainerHostService {
 	}
 
 	return hostService
-}
-
-func (service *ContainerHostService) WithContext(ctx context.Context) *ContainerHostService {
-	service.repo.WithContext(ctx)
-	return service
 }
 
 func (service *ContainerHostService) CreateHost(context context.Context, name string) error {

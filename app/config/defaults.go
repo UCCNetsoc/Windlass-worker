@@ -15,7 +15,7 @@ func InitDefaults() {
 
 	viper.SetDefault("containerHost.type", "lxd")
 
-	viper.SetDefault("lxd.baseImage", "875c09ae8e45") // sample image
+	viper.SetDefault("lxd.baseImage", "adc1818d239a") // sample image
 
 	// Consul settings
 	viper.SetDefault("consul.host", "127.0.0.1:8500")

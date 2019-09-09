@@ -5,10 +5,11 @@ import (
 )
 
 type ContainerHostRepository interface {
-	WithContext(context.Context) ContainerHostRepository
-	Ping() error
-	CreateContainerHost(context.Context, ContainerHostCreateOptions) error
-	StartContainerHost(context.Context, ContainerHostCreateOptions) error
+	Ping(ctx context.Context) error
+	GetContainerHostIP(ctx context.Context, name string) (string, error)
+	CreateContainerHost(ctx context.Context, opts ContainerHostCreateOptions) error
+	StartContainerHost(ctx context.Context, opts ContainerHostCreateOptions) error
+	PushAuthCerts(ctx context.Context, opts ContainerHostCreateOptions, caPEM, serverKeyPEM, serverCertPEM, clientKeyPEM, clientCertPEM []byte) error
 }
 
 type ContainerHostCreateOptions struct {
