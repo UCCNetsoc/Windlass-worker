@@ -15,7 +15,7 @@ func InitDefaults() {
 
 	viper.SetDefault("containerHost.type", "lxd")
 
-	viper.SetDefault("lxd.baseImage", "385688d87650") // sample image
+	viper.SetDefault("lxd.baseImage", "875c09ae8e45") // sample image
 
 	// Consul settings
 	viper.SetDefault("consul.host", "127.0.0.1:8500")
@@ -25,6 +25,8 @@ func InitDefaults() {
 	// Vault settings
 	viper.SetDefault("vault.enabled", false) // If enabled, gets dynamic secret to access Consul from Vault
 	viper.SetDefault("vault.token", "")
+
+	viper.SetDefault("windlass.secret", "")
 }
 
 // TODO: Add random number to 'unknown' state

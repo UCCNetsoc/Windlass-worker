@@ -8,8 +8,6 @@ require (
 	github.com/go-check/check v1.0.0-20180628173108-788fd7840127 // indirect
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-chi/render v1.0.1
-	github.com/golang/protobuf v1.3.2 // indirect
-	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/hashicorp/consul/api v1.1.0
 	github.com/hashicorp/vault/api v1.0.2
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c // indirect
@@ -19,7 +17,6 @@ require (
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb // indirect
 	github.com/lxc/lxd v0.0.0-20190717210919-0ecd38c37220
 	github.com/pelletier/go-toml v1.3.0 // indirect
-	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.4.0
