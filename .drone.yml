@@ -9,11 +9,11 @@ steps:
     target: dev
     repo: docker.netsoc.co/public/windlass-worker
     registry: docker.netsoc.co
+    cache_from: docker.netsoc.co/public/windlass-worker
     username:
       from_secret: docker_username
     password:
       from_secret: docker_password
-    purge: false
   when:
     event:
       - push
@@ -26,6 +26,7 @@ steps:
     tag: latest
     repo: docker.netsoc.co/netsoc/windlass-worker
     registry: docker.netsoc.co
+    cache_from: docker.netsoc.co/netsoc/windlass-worker
     username:
       from_secret: docker_username
     password:
