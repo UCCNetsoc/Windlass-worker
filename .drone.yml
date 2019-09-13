@@ -13,11 +13,13 @@ steps:
       from_secret: docker_username
     password:
       from_secret: docker_password
+    purge: false
   when:
     event:
       - push
     branch:
       - master
+
 - name: build_prod
   image: plugins/docker
   settings:
@@ -28,6 +30,7 @@ steps:
       from_secret: docker_username
     password:
       from_secret: docker_password
+    purge: false
   when:
     event:
       - push
