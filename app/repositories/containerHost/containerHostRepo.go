@@ -9,7 +9,8 @@ type ContainerHostRepository interface {
 	GetContainerHostIP(ctx context.Context, name string) (string, error)
 	CreateContainerHost(ctx context.Context, opts ContainerHostCreateOptions) error
 	StartContainerHost(ctx context.Context, opts ContainerHostCreateOptions) error
-	PushAuthCerts(ctx context.Context, opts ContainerHostCreateOptions, caPEM, serverKeyPEM, serverCertPEM, clientKeyPEM, clientCertPEM []byte) error
+	PushAuthCerts(ctx context.Context, opts ContainerHostCreateOptions, caPEM, serverKeyPEM, serverCertPEM []byte) error
+	RestartNGINX(ctx context.Context, name string) error
 }
 
 type ContainerHostCreateOptions struct {

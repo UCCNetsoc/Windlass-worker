@@ -18,6 +18,7 @@ require (
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb // indirect
 	github.com/lxc/lxd v0.0.0-20190717210919-0ecd38c37220
 	github.com/pelletier/go-toml v1.3.0 // indirect
+	github.com/pkg/errors v0.8.1
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.4.0

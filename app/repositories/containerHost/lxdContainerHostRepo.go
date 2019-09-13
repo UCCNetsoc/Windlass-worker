@@ -3,10 +3,12 @@ package host
 import (
 	"bytes"
 	"context"
-	"errors"
+	_ "errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/cenkalti/backoff"
 
@@ -18,6 +20,7 @@ import (
 
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/connections"
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/helpers"
+	"github.com/UCCNetworkingSociety/Windlass-worker/utils/writecloser"
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 )
@@ -119,24 +122,39 @@ func (lxd *LXDHost) GetContainerHostIP(ctx context.Context, name string) (string
 	return ip, backoff.Retry(f, retry)
 }
 
-func (lxd *LXDHost) PushAuthCerts(ctx context.Context, opts ContainerHostCreateOptions, caPEM, serverKeyPEM, serverCertPEM, clientKeyPEM, clientCertPEM []byte) error {
+func (lxd *LXDHost) PushAuthCerts(ctx context.Context, opts ContainerHostCreateOptions, caPEM, serverKeyPEM, serverCertPEM []byte) error {
 	err := multierr.Combine(
-		lxd.conn.CreateContainerFile(opts.Name, "/nginx", lxdclient.ContainerFileArgs{
-			UID: 33, GID: 33, Content: bytes.NewReader(caPEM), Mode: 400, Type: "file", WriteMode: "file",
-		}),
-		lxd.conn.CreateContainerFile(opts.Name, "/nginx", lxdclient.ContainerFileArgs{
-			UID: 33, GID: 33, Content: bytes.NewReader(serverKeyPEM), Mode: 400, Type: "file", WriteMode: "file",
-		}),
-		lxd.conn.CreateContainerFile(opts.Name, "/nginx", lxdclient.ContainerFileArgs{
-			UID: 33, GID: 33, Content: bytes.NewReader(serverCertPEM), Mode: 400, Type: "file", WriteMode: "file",
-		}),
-		lxd.conn.CreateContainerFile(opts.Name, "/nginx", lxdclient.ContainerFileArgs{
-			UID: 33, GID: 33, Content: bytes.NewReader(clientKeyPEM), Mode: 400, Type: "file", WriteMode: "file",
-		}),
-		lxd.conn.CreateContainerFile(opts.Name, "/nginx", lxdclient.ContainerFileArgs{
-			UID: 33, GID: 33, Content: bytes.NewReader(clientCertPEM), Mode: 400, Type: "file", WriteMode: "file",
-		}),
+		errors.WithMessage(lxd.conn.CreateContainerFile(opts.Name, "/nginx/ca-cert.pem", lxdclient.ContainerFileArgs{
+			UID: 0, GID: 0, Content: bytes.NewReader(caPEM), Mode: 400, Type: "file", WriteMode: "overwrite",
+		}), "failed to push /nginx/ca-cert.pem"),
+		errors.WithMessage(lxd.conn.CreateContainerFile(opts.Name, "/nginx/server-key.pem", lxdclient.ContainerFileArgs{
+			UID: 0, GID: 0, Content: bytes.NewReader(serverKeyPEM), Mode: 400, Type: "file", WriteMode: "overwrite",
+		}), "failed to push /nginx/server-key.pem"),
+		errors.WithMessage(lxd.conn.CreateContainerFile(opts.Name, "/nginx/server-cert.pem", lxdclient.ContainerFileArgs{
+			UID: 0, GID: 0, Content: bytes.NewReader(serverCertPEM), Mode: 400, Type: "file", WriteMode: "overwrite",
+		}), "failed to push /nginx/server-cert.pem"),
 	)
 
 	return err
+}
+
+func (lxd *LXDHost) RestartNGINX(ctx context.Context, name string) error {
+	exec := api.ContainerExecPost{
+		Command:   []string{"systemctl", "restart", "nginx"},
+		WaitForWS: true,
+	}
+
+	buf := &writecloser.BytesBuffer{bytes.NewBuffer(nil)}
+	op, err := lxd.conn.ExecContainer(name, exec, &lxdclient.ContainerExecArgs{
+		Stderr: buf,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = helpers.OperationTimeout(ctx, op)
+	if err == context.DeadlineExceeded {
+		return err
+	}
+	return errors.WithMessage(err, fmt.Sprintf("error restarting nginx: %s", buf.String()))
 }
