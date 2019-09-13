@@ -1,9 +1,16 @@
 kind: pipeline
 name: default
 
+volumes:
+- name: cache
+  temp: {}
+
 steps:
 - name: build_dev
   image: plugins/docker
+  volumes:
+  - name: cache
+    path: /var/lib/docker
   settings:
     tag: dev-env
     target: dev
@@ -21,6 +28,9 @@ steps:
 
 - name: build_prod
   image: plugins/docker
+  volumes:
+  - name: cache
+    path: /var/lib/docker  
   settings:
     tag: latest
     repo: docker.netsoc.co/netsoc/windlass-worker
