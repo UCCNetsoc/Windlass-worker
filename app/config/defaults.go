@@ -18,12 +18,13 @@ func InitDefaults() {
 	viper.SetDefault("lxd.baseImage", "c4fad4b4dce1") // sample image
 
 	// Consul settings
-	viper.SetDefault("consul.host", "127.0.0.1:8500")
+	viper.SetDefault("consul.url", "127.0.0.1:8500")
 	viper.SetDefault("consul.token", "") // ACL token
 	viper.SetDefault("consul.path", "windlass")
 
 	// Vault settings
-	viper.SetDefault("vault.enabled", false) // If enabled, gets dynamic secret to access Consul from Vault
+	viper.SetDefault("vault.enabled", false) // If enabled, gets dynamic secret to access Consul from Vault maybe
+	viper.SetDefault("vault.url", "127.0.0.1:8200")
 	viper.SetDefault("vault.token", "")
 
 	viper.SetDefault("windlass.secret", "")

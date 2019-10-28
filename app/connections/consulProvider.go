@@ -1,4 +1,4 @@
-package consul
+package connections
 
 import (
 	"errors"
@@ -11,14 +11,14 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/hashicorp/consul/api"
+	consul "github.com/hashicorp/consul/api"
 )
 
-type Provider struct {
+type ConsulProvider struct {
 	id                 string
 	address            string
 	port               int
-	client             *api.Client
+	client             *consul.Client
 	deregisterCritical time.Duration
 	ttl                time.Duration
 	refreshTTL         time.Duration
@@ -26,13 +26,13 @@ type Provider struct {
 	secretGetRetry     int
 }
 
-func NewProvider(conf *api.Config) (*Provider, error) {
-	client, err := api.NewClient(conf)
+func newConsulProvider(conf *consul.Config) (*ConsulProvider, error) {
+	client, err := consul.NewClient(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Provider{
+	return &ConsulProvider{
 		client:         client,
 		ttl:            time.Second * 10,
 		refreshTTL:     time.Second * 5,
@@ -42,7 +42,7 @@ func NewProvider(conf *api.Config) (*Provider, error) {
 
 // Register registers the worker and its associated projects with Consul.
 // See registerWorker() and registerProjects() for specific details
-func (p *Provider) Register() error {
+func (p *ConsulProvider) Register() error {
 	p.id = fmt.Sprintf("windlass-worker@%s:%s", viper.GetString("http.address"), strconv.Itoa(viper.GetInt("http.port")))
 	p.port = viper.GetInt("http.port")
 	p.address = viper.GetString("http.address")
@@ -63,13 +63,13 @@ func (p *Provider) Register() error {
 }
 
 // Registers this worker with Consul using a TTL based health check
-func (p *Provider) registerWorker() error {
-	service := &api.AgentServiceRegistration{
+func (p *ConsulProvider) registerWorker() error {
+	service := &consul.AgentServiceRegistration{
 		ID:      p.id,
 		Name:    "windlass-worker",
 		Address: p.address,
 		Port:    p.port,
-		Check: &api.AgentServiceCheck{
+		Check: &consul.AgentServiceCheck{
 			DeregisterCriticalServiceAfter: p.deregisterCritical.String(),
 			TTL:                            p.ttl.String(),
 		},
@@ -80,19 +80,19 @@ func (p *Provider) registerWorker() error {
 
 // Registers the projects associated with this worker with Consul using a TTL based health check
 // It pings the Docker Daemon on each project, see https://docs.docker.com/engine/api/v1.37/#operation/SystemPing for details
-func (p *Provider) registerProjects() error {
+func (p *ConsulProvider) registerProjects() error {
 
 	return nil
 }
 
 // Updates the TTL for this worker
-func (p *Provider) udpateWorkerTTL() {
+func (p *ConsulProvider) udpateWorkerTTL() {
 	go func() {
 		ticker := time.NewTicker(p.ttl / 2)
 		for range ticker.C {
-			health := api.HealthPassing
+			health := consul.HealthPassing
 			if viper.GetString("windlass.secret") == "" {
-				health = api.HealthCritical
+				health = consul.HealthCritical
 			}
 
 			err := p.client.Agent().UpdateTTL("service:"+p.id, "", health)
@@ -106,14 +106,14 @@ func (p *Provider) udpateWorkerTTL() {
 }
 
 // Updates the TTL for each project associated with this worker
-func (p *Provider) updateProjectTTL() {
+func (p *ConsulProvider) updateProjectTTL() {
 
 }
 
-func (p *Provider) GetAndSetSharedSecret() error {
+func (p *ConsulProvider) GetAndSetSharedSecret() error {
 	fn := func() error {
 		path := viper.GetString("consul.path") + "/secret"
-		kv, _, err := p.client.KV().Get(path, &api.QueryOptions{})
+		kv, _, err := p.client.KV().Get(path, &consul.QueryOptions{})
 		if err != nil {
 			return err
 		}
@@ -142,7 +142,7 @@ func (p *Provider) GetAndSetSharedSecret() error {
 	return err
 }
 
-func (p *Provider) onFailedTTL() error {
+func (p *ConsulProvider) onFailedTTL() error {
 	if strings.HasSuffix(p.ttlError.Error(), "does not have associated TTL)") {
 		return p.registerWorker()
 	}

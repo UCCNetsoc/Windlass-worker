@@ -1,7 +1,6 @@
 package connections
 
 import (
-	consulProvider "github.com/UCCNetworkingSociety/Windlass-worker/app/connections/consul"
 	consul "github.com/hashicorp/consul/api"
 	vault "github.com/hashicorp/vault/api"
 
@@ -13,8 +12,8 @@ import (
 
 type Connections struct {
 	lxd    lxd.ContainerServer
-	consul *consulProvider.Provider
-	vault  *vault.Client
+	consul *ConsulProvider
+	vault  *VaultProvider
 }
 
 var group Connections
@@ -23,6 +22,10 @@ func EstablishConnections() error {
 	var err error
 
 	if _, err = GetConsul(); err != nil {
+		return err
+	}
+
+	if _, err = GetVault(); err != nil {
 		return err
 	}
 
@@ -42,17 +45,36 @@ func Close() {
 
 }
 
-func GetConsul() (*consulProvider.Provider, error) {
+func GetVault() (*VaultProvider, error) {
+	if group.vault != nil {
+		return group.vault, nil
+	}
+
+	config := vault.Config{
+		Address: viper.GetString("vault.url"),
+	}
+
+	provider, err := newVaultProvider(&config)
+	if err != nil {
+		return nil, err
+	}
+
+	provider.client.SetToken(viper.GetString("vault.token"))
+
+	return provider, nil
+}
+
+func GetConsul() (*ConsulProvider, error) {
 	if group.consul != nil {
 		return group.consul, nil
 	}
 
 	config := consul.Config{
-		Address: viper.GetString("consul.host"),
+		Address: viper.GetString("consul.url"),
 		Token:   viper.GetString("consul.token"),
 	}
 
-	provider, err := consulProvider.NewProvider(&config)
+	provider, err := newConsulProvider(&config)
 	if err != nil {
 		return nil, NewConnectionError(err, "Consul")
 	}
