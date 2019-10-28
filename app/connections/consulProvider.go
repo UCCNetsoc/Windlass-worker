@@ -70,8 +70,10 @@ func (p *ConsulProvider) registerWorker() error {
 		Address: p.address,
 		Port:    p.port,
 		Check: &consul.AgentServiceCheck{
-			DeregisterCriticalServiceAfter: p.deregisterCritical.String(),
-			TTL:                            p.ttl.String(),
+			// Probably wanna keep failed workers around
+			// TODO: Need to purposely deregister on successful shutdown then
+			//DeregisterCriticalServiceAfter: p.deregisterCritical.String(),
+			TTL: p.ttl.String(),
 		},
 	}
 

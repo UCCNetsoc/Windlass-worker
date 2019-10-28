@@ -23,14 +23,15 @@ func InitDefaults() {
 	viper.SetDefault("consul.path", "windlass")
 
 	// Vault settings
-	viper.SetDefault("vault.enabled", false) // If enabled, gets dynamic secret to access Consul from Vault maybe
-	viper.SetDefault("vault.url", "127.0.0.1:8200")
-	viper.SetDefault("vault.token", "")
+	viper.SetDefault("vault.enabled", true)                // If enabled, gets dynamic secret to access Consul from Vault maybe
+	viper.SetDefault("vault.url", "http://localhost:8200") // vault client demands its a URL and not an IP
+	viper.SetDefault("vault.token", "netsoc")
+	viper.SetDefault("vault.path", "windlass/")
 
 	viper.SetDefault("windlass.secret", "")
 }
 
-// TODO: Add random number to 'unknown' state
+// TODO: Add random number to 'unknown' state for Consul
 func getFQDN() string {
 	hostname, err := os.Hostname()
 	if err != nil {
