@@ -44,15 +44,13 @@ func NewContainerHostService() *ContainerHostService {
 // TODO: more to be part of ContainerHostCreateOptions
 // TODO: better error handling, rollback changes on failure etc
 func (service *ContainerHostService) CreateHost(ctx context.Context, name string) error {
-	options := host.ContainerHostCreateOptions{
-		Name: name,
-	}
+	containerName := host.ContainerName{name}
 
-	if err := service.repo.CreateContainerHost(ctx, options); err != nil {
+	if err := service.repo.CreateContainerHost(ctx, host.ContainerHostCreateOptions{containerName}); err != nil {
 		return err
 	}
 
-	if err := service.repo.StartContainerHost(ctx, options); err != nil {
+	if err := service.repo.StartContainerHost(ctx, host.ContainerHostStartOptions{containerName}); err != nil {
 		return err
 	}
 
@@ -66,7 +64,7 @@ func (service *ContainerHostService) CreateHost(ctx context.Context, name string
 		return err
 	}
 
-	if err := service.repo.PushAuthCerts(ctx, options, pems.CAPEM, pems.ServerKeyPEM, pems.ServerCertPEM); err != nil {
+	if err := service.repo.PushAuthCerts(ctx, host.ContainerPushCertsOptions{containerName}, pems.CAPEM, pems.ServerKeyPEM, pems.ServerCertPEM); err != nil {
 		return err
 	}
 
@@ -74,7 +72,7 @@ func (service *ContainerHostService) CreateHost(ctx context.Context, name string
 		return err
 	}
 
-	if err := service.tlsStorageRepo.PushAuthCerts(ctx, options.Name, pems.CAPEM, pems.ServerKeyPEM, pems.ServerCertPEM, pems.ClientKeyPEM, pems.ClientCertPEM); err != nil {
+	if err := service.tlsStorageRepo.PushAuthCerts(ctx, containerName.Name, pems.CAPEM, pems.ServerKeyPEM, pems.ServerCertPEM, pems.ClientKeyPEM, pems.ClientCertPEM); err != nil {
 		return err
 	}
 

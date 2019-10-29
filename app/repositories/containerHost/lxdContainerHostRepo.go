@@ -89,9 +89,29 @@ func (lxd *LXDHost) CreateContainerHost(ctx context.Context, opts ContainerHostC
 	return lxd.parseError(err)
 }
 
-func (lxd *LXDHost) StartContainerHost(ctx context.Context, opts ContainerHostCreateOptions) error {
+func (lxd *LXDHost) DeleteContainerHost(ctx context.Context, opts ContainerHostDeleteOptions) error {
+	op, err := lxd.conn.DeleteContainer(opts.Name)
+	if err != nil {
+		return err
+	}
+	return helpers.OperationTimeout(ctx, op)
+}
+
+func (lxd *LXDHost) StartContainerHost(ctx context.Context, opts ContainerHostStartOptions) error {
 	op, err := lxd.conn.UpdateContainerState(opts.Name, api.ContainerStatePut{
 		Action:  "start",
+		Timeout: -1,
+	}, "")
+	if err != nil {
+		return err
+	}
+
+	return helpers.OperationTimeout(ctx, op)
+}
+
+func (lxd *LXDHost) StopContainerHost(ctx context.Context, opts ContainerHostStopOptions) error {
+	op, err := lxd.conn.UpdateContainerState(opts.Name, api.ContainerStatePut{
+		Action:  "stop",
 		Timeout: -1,
 	}, "")
 	if err != nil {
@@ -122,7 +142,7 @@ func (lxd *LXDHost) GetContainerHostIP(ctx context.Context, name string) (string
 	return ip, backoff.Retry(f, retry)
 }
 
-func (lxd *LXDHost) PushAuthCerts(ctx context.Context, opts ContainerHostCreateOptions, caPEM, serverKeyPEM, serverCertPEM []byte) error {
+func (lxd *LXDHost) PushAuthCerts(ctx context.Context, opts ContainerPushCertsOptions, caPEM, serverKeyPEM, serverCertPEM []byte) error {
 	err := multierr.Combine(
 		errors.WithMessage(lxd.conn.CreateContainerFile(opts.Name, "/nginx/ca-cert.pem", lxdclient.ContainerFileArgs{
 			UID: 0, GID: 0, Content: bytes.NewReader(caPEM), Mode: 400, Type: "file", WriteMode: "overwrite",
