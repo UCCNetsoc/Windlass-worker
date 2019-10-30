@@ -3,14 +3,16 @@ package host
 import (
 	"bytes"
 	"context"
-	_ "errors"
 	"fmt"
 	"strings"
 	"time"
 
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 
 	"github.com/cenkalti/backoff"
+
+	lxd "github.com/lxc/lxd/client"
 
 	"go.uber.org/multierr"
 
@@ -18,34 +20,70 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/UCCNetworkingSociety/Windlass-worker/app/connections"
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/helpers"
 	"github.com/UCCNetworkingSociety/Windlass-worker/utils/writecloser"
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 )
 
-type LXDHost struct {
-	conn lxdclient.ContainerServer
+var lxdConn lxd.ContainerServer
+
+type lxdHost struct {
+	conn       lxdclient.ContainerServer
+	dockerConn *docker.Client
+	ip         string
+
+	// certs for interacting with the host's Docker daemon
+	clientKeyPEM  []byte
+	clientCertPEM []byte
+	caPEM         []byte
+}
+
+func getLXD() (lxd.ContainerServer, error) {
+	if lxdConn != nil {
+		return lxdConn, nil
+	}
+
+	lxdconn, err := lxd.ConnectLXDUnix(viper.GetString("lxd.socket"), &lxd.ConnectionArgs{
+		UserAgent: "Windlass",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("couldnt connect to LXD socket: %v", err)
+	}
+
+	lxdConn = lxdconn
+
+	return lxdConn, nil
 }
 
 // TODO context tiemouts
 func NewLXDRepository() ContainerHostRepository {
-	lxdHost, err := connections.GetLXD()
+	lxdHostConn, err := getLXD()
 	if err != nil {
 		panic(fmt.Sprintf("error getting LXD host: %v", err))
 	}
 
-	return &LXDHost{
-		conn: lxdHost,
+	return &lxdHost{
+		conn: lxdHostConn,
 	}
 }
 
-func (lxd *LXDHost) Ping(ctx context.Context) error {
-	return nil
+func (lxd *lxdHost) Ping(ctx context.Context) error {
+	if lxd.dockerConn == nil {
+		client, err := docker.NewTLSClientFromBytes("https://"+lxd.ip, lxd.clientCertPEM, lxd.clientKeyPEM, lxd.caPEM)
+		if err != nil {
+			return err
+		}
+		lxd.dockerConn = client
+	}
+
+	log.WithFields(log.Fields{
+		"ip": lxd.ip,
+	}).Info("pinging docker endpoint")
+	return lxd.dockerConn.PingWithContext(ctx)
 }
 
-func (lxd *LXDHost) parseError(err error) error {
+func (lxd *lxdHost) parseError(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -55,7 +93,7 @@ func (lxd *LXDHost) parseError(err error) error {
 	return err
 }
 
-func (lxd *LXDHost) CreateContainerHost(ctx context.Context, opts ContainerHostCreateOptions) error {
+func (lxd *lxdHost) CreateContainerHost(ctx context.Context, opts ContainerHostCreateOptions) error {
 	log.WithFields(log.Fields{
 		"containerHostName": opts.Name,
 	}).Debug("create container host request")
@@ -89,7 +127,7 @@ func (lxd *LXDHost) CreateContainerHost(ctx context.Context, opts ContainerHostC
 	return lxd.parseError(err)
 }
 
-func (lxd *LXDHost) DeleteContainerHost(ctx context.Context, opts ContainerHostDeleteOptions) error {
+func (lxd *lxdHost) DeleteContainerHost(ctx context.Context, opts ContainerHostDeleteOptions) error {
 	op, err := lxd.conn.DeleteContainer(opts.Name)
 	if err != nil {
 		return err
@@ -97,7 +135,7 @@ func (lxd *LXDHost) DeleteContainerHost(ctx context.Context, opts ContainerHostD
 	return helpers.OperationTimeout(ctx, op)
 }
 
-func (lxd *LXDHost) StartContainerHost(ctx context.Context, opts ContainerHostStartOptions) error {
+func (lxd *lxdHost) StartContainerHost(ctx context.Context, opts ContainerHostStartOptions) error {
 	op, err := lxd.conn.UpdateContainerState(opts.Name, api.ContainerStatePut{
 		Action:  "start",
 		Timeout: -1,
@@ -109,7 +147,7 @@ func (lxd *LXDHost) StartContainerHost(ctx context.Context, opts ContainerHostSt
 	return helpers.OperationTimeout(ctx, op)
 }
 
-func (lxd *LXDHost) StopContainerHost(ctx context.Context, opts ContainerHostStopOptions) error {
+func (lxd *lxdHost) StopContainerHost(ctx context.Context, opts ContainerHostStopOptions) error {
 	op, err := lxd.conn.UpdateContainerState(opts.Name, api.ContainerStatePut{
 		Action:  "stop",
 		Timeout: -1,
@@ -121,7 +159,7 @@ func (lxd *LXDHost) StopContainerHost(ctx context.Context, opts ContainerHostSto
 	return helpers.OperationTimeout(ctx, op)
 }
 
-func (lxd *LXDHost) GetContainerHostIP(ctx context.Context, name string) (string, error) {
+func (lxd *lxdHost) GetContainerHostIP(ctx context.Context, name string) (string, error) {
 	var ip string
 	retry := backoff.WithContext(backoff.NewConstantBackOff(time.Millisecond*5), ctx)
 	f := func() error {
@@ -133,6 +171,7 @@ func (lxd *LXDHost) GetContainerHostIP(ctx context.Context, name string) (string
 		for _, addr := range state.Network["eth0"].Addresses {
 			if addr.Family == "inet" {
 				ip = addr.Address
+				lxd.ip = ip
 				return nil
 			}
 		}
@@ -142,7 +181,7 @@ func (lxd *LXDHost) GetContainerHostIP(ctx context.Context, name string) (string
 	return ip, backoff.Retry(f, retry)
 }
 
-func (lxd *LXDHost) PushAuthCerts(ctx context.Context, opts ContainerPushCertsOptions, caPEM, serverKeyPEM, serverCertPEM []byte) error {
+func (lxd *lxdHost) PushAuthCerts(ctx context.Context, opts ContainerPushCertsOptions, caPEM, serverKeyPEM, serverCertPEM []byte) error {
 	err := multierr.Combine(
 		errors.WithMessage(lxd.conn.CreateContainerFile(opts.Name, "/nginx/ca-cert.pem", lxdclient.ContainerFileArgs{
 			UID: 0, GID: 0, Content: bytes.NewReader(caPEM), Mode: 400, Type: "file", WriteMode: "overwrite",
@@ -158,7 +197,13 @@ func (lxd *LXDHost) PushAuthCerts(ctx context.Context, opts ContainerPushCertsOp
 	return err
 }
 
-func (lxd *LXDHost) RestartNGINX(ctx context.Context, name string) error {
+func (lxd *lxdHost) UseCerts(clientKeyPEM, clientCertPEM, caPEM []byte) {
+	lxd.clientKeyPEM = clientKeyPEM
+	lxd.clientCertPEM = clientCertPEM
+	lxd.caPEM = caPEM
+}
+
+func (lxd *lxdHost) RestartNGINX(ctx context.Context, name string) error {
 	exec := api.ContainerExecPost{
 		Command:   []string{"systemctl", "restart", "nginx"},
 		WaitForWS: true,

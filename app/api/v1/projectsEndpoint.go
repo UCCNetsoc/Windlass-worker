@@ -29,7 +29,7 @@ func NewProjectEndpoints(r chi.Router) {
 	}
 
 	r.Route("/projects", func(r chi.Router) {
-		r.Post("/", middleware.WithContext(projectEndpoint.createProject, time.Second*20))
+		r.Post("/", middleware.WithContext(projectEndpoint.createProject, time.Second*40))
 	})
 }
 

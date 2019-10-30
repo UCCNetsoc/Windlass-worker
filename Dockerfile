@@ -1,12 +1,10 @@
-FROM golang:1.12 AS dev
+FROM golang:1.13 AS dev
 
 WORKDIR /windlass-worker
 
 RUN go get github.com/go-task/task/cmd/task \
     github.com/derekparker/delve/cmd/dlv \
     github.com/nomad-software/vend
-
-ENV GO111MODULES=on
 
 COPY go.mod .
 COPY go.sum .
@@ -18,8 +16,6 @@ COPY . .
 RUN go install github.com/UCCNetworkingSociety/Windlass-worker/cmd/windlass-worker
 
 RUN go mod vendor && vend
-
-ENV GO111MODULES=off
 
 CMD [ "go", "run", "cmd/windlass-worker/main.go" ]
 

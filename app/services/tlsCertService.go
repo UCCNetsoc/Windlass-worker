@@ -16,7 +16,7 @@ const (
 )
 
 type PEMContainer struct {
-	CAPEM, ServerKeyPEM, ServerCertPEM, ClientKeyPEM, ClientCertPEM []byte
+	ServerCAPEM, ClientCAPEM, ServerKeyPEM, ServerCertPEM, ClientKeyPEM, ClientCertPEM []byte
 }
 
 type TLSCertService struct {
@@ -128,5 +128,5 @@ func (t *TLSCertService) CreatePEMs(serverIP string) (*PEMContainer, error) {
 		return nil, err
 	}
 
-	return &PEMContainer{caCertPEM, serverKeyPEM, serverCertPEM, clientKeyPEM, clientCertPEM}, nil
+	return &PEMContainer{caCertPEM, clientCACertPEM, serverKeyPEM, serverCertPEM, clientKeyPEM, clientCertPEM}, nil
 }

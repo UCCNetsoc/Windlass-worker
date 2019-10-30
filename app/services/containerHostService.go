@@ -3,14 +3,17 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/UCCNetworkingSociety/Windlass-worker/app/repositories/providers"
 
 	host "github.com/UCCNetworkingSociety/Windlass-worker/app/repositories/containerHost"
 	tlsstorage "github.com/UCCNetworkingSociety/Windlass-worker/app/repositories/tlsStorage"
-	"github.com/spf13/viper"
 )
 
 type ContainerHostService struct {
 	repo           host.ContainerHostRepository
+	consul         *providers.ConsulProvider
 	tlsService     *TLSCertService
 	tlsStorageRepo tlsstorage.TLSStorageRepo
 }
@@ -20,23 +23,15 @@ func NewContainerHostService() *ContainerHostService {
 		tlsService: NewTLSCertService(),
 	}
 
-	hostProvider := viper.GetString("containerHost.type")
+	hostService.repo = host.NewContainerHostRepository()
 
-	if hostProvider == "lxd" {
-		hostService.repo = host.NewLXDRepository()
-	} else {
-		panic(fmt.Sprintf("invalid container host %s", hostProvider))
-	}
+	hostService.tlsStorageRepo = tlsstorage.NewTLSStorageRepo()
 
-	if viper.GetBool("vault.enabled") {
-		repo, err := tlsstorage.NewVaultTLSStorageRepo()
-		if err != nil {
-			panic(fmt.Errorf("failed to get TLS storage repo: %w", err))
-		}
-		hostService.tlsStorageRepo = repo
-	} else {
-		panic("vault currently required")
+	consul, err := providers.NewConsulProvider()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get consul provider: %v", err))
 	}
+	hostService.consul = consul
 
 	return hostService
 }
@@ -64,7 +59,7 @@ func (service *ContainerHostService) CreateHost(ctx context.Context, name string
 		return err
 	}
 
-	if err := service.repo.PushAuthCerts(ctx, host.ContainerPushCertsOptions{containerName}, pems.CAPEM, pems.ServerKeyPEM, pems.ServerCertPEM); err != nil {
+	if err := service.repo.PushAuthCerts(ctx, host.ContainerPushCertsOptions{containerName}, pems.ServerCAPEM, pems.ServerKeyPEM, pems.ServerCertPEM); err != nil {
 		return err
 	}
 
@@ -72,9 +67,21 @@ func (service *ContainerHostService) CreateHost(ctx context.Context, name string
 		return err
 	}
 
-	if err := service.tlsStorageRepo.PushAuthCerts(ctx, containerName.Name, pems.CAPEM, pems.ServerKeyPEM, pems.ServerCertPEM, pems.ClientKeyPEM, pems.ClientCertPEM); err != nil {
+	service.repo.UseCerts(pems.ClientKeyPEM, pems.ClientCertPEM, pems.ClientCAPEM)
+
+	if err := service.tlsStorageRepo.PushAuthCerts(ctx, containerName.Name, pems.ServerCAPEM, pems.ClientCAPEM, pems.ServerKeyPEM, pems.ServerCertPEM, pems.ClientKeyPEM, pems.ClientCertPEM); err != nil {
 		return err
 	}
+
+	service.consul.RegisterProject(containerName.Name, ip, func(ip string) (string, bool) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		err := service.repo.Ping(ctx)
+		if err != nil {
+			return err.Error(), false
+		}
+		return "Remote Docker daemon reachable", true
+	})
 
 	return nil
 }

@@ -25,8 +25,7 @@ func main() {
 
 	must.Do(config.Load)
 
-	must.Do(connections.EstablishConnections)
-	defer connections.Close()
+	must.Do(connections.TestConnections)
 
 	config.PrintSettings()
 
