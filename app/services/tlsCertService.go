@@ -1,9 +1,14 @@
 package services
 
+// Automated TLS cert generation with client and server auth
+// Adapted from https://github.com/Shyp/generate-tls-cert/blob/master/generate.go
+// with changes to Root Template from https://trac.nginx.org/nginx/ticket/1760 specifically:
+// "remove the X509v3 Extended Key Usage extension from the root certificate."
+
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"math/big"
@@ -43,90 +48,137 @@ func (t *TLSCertService) certificateTemplate() *x509.Certificate {
 	}
 }
 
-func (t *TLSCertService) generateCertTemplates() {
-	certTemplate := t.certificateTemplate()
+func (t *TLSCertService) generateRootParts() (rootKeyPEM []byte, rootCertPEM []byte, rootKeyPart *ecdsa.PrivateKey, rootTemplate *x509.Certificate, err error) {
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
 
-	serverCertTemplate := *certTemplate
-	serverCertTemplate.IsCA = true
-	serverCertTemplate.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature
-	serverCertTemplate.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
-	t.serverCertTemplate = &serverCertTemplate
+	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 
-	clientCertTemplate := *certTemplate
-	clientCertTemplate.KeyUsage = x509.KeyUsageDigitalSignature
-	clientCertTemplate.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
-	t.clientCertTemplate = &clientCertTemplate
+	rootKeyBytes, err := t.encodeKey(rootKey)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	rootTemplate = &x509.Certificate{
+		SerialNumber:          serialNumber,
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(tenYears),
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	rootCertBytes, err := x509.CreateCertificate(rand.Reader, rootTemplate, rootTemplate, &rootKey.PublicKey, rootKey)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	rootCertBytes = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCertBytes})
+
+	return rootKeyBytes, rootCertBytes, rootKey, rootTemplate, err
 }
 
-func (t *TLSCertService) generateKey() (*rsa.PrivateKey, error) {
-	return rsa.GenerateKey(rand.Reader, 4096)
-}
+func (t *TLSCertService) generateServerParts(rootTemplate *x509.Certificate, rootKey *ecdsa.PrivateKey) (serverKeyPEM []byte, serverCertPEM []byte, err error) {
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
 
-func (t *TLSCertService) generateKeyPEM() ([]byte, *rsa.PrivateKey, error) {
-	serverKey, err := t.generateKey()
+	serverKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}
-	serverKeyBlock := pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(serverKey)}
-	return pem.EncodeToMemory(&serverKeyBlock), serverKey, nil
+
+	serverKeyBytes, err := t.encodeKey(serverKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	serverTemplate := x509.Certificate{
+		SerialNumber:          serialNumber,
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(tenYears),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+		IPAddresses:           []net.IP{net.ParseIP(t.serverIP)},
+	}
+
+	serverCertBytes, err := x509.CreateCertificate(rand.Reader, &serverTemplate, rootTemplate, &serverKey.PublicKey, rootKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	serverCertBytes = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverCertBytes})
+
+	return serverKeyBytes, serverCertBytes, nil
 }
 
-func (t *TLSCertService) generateCertPEM(template, parent *x509.Certificate, pub, priv interface{}) ([]byte, error) {
-	certDER, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
+func (t *TLSCertService) generateClientParts(rootTemplate *x509.Certificate, rootKey *ecdsa.PrivateKey) (clientKeyPEM []byte, clientCertPEM []byte, err error) {
+	clientKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	clientKeyBytes, err := t.encodeKey(clientKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	clientTemplate := x509.Certificate{
+		SerialNumber:          new(big.Int).SetInt64(4),
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(tenYears),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+	}
+
+	clientCertBytes, err := x509.CreateCertificate(rand.Reader, &clientTemplate, rootTemplate, &clientKey.PublicKey, rootKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	clientCertBytes = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: clientCertBytes})
+
+	return clientKeyBytes, clientCertBytes, nil
+}
+
+func (t *TLSCertService) encodeKey(key *ecdsa.PrivateKey) ([]byte, error) {
+	keyBytes, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return nil, err
 	}
-	caCertBlock := pem.Block{Type: "CERTIFICATE", Bytes: certDER}
-	return pem.EncodeToMemory(&caCertBlock), nil
-}
 
-func (t *TLSCertService) generateTLSCertPEM(certPEM, keyPEM []byte) ([]byte, error) {
-	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		return nil, err
-	}
-
-	tlsCertBlock := pem.Block{Type: "CERTIFICATE", Bytes: tlsCert.Certificate[0]}
-	return pem.EncodeToMemory(&tlsCertBlock), nil
+	return pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes}), nil
 }
 
 func (t *TLSCertService) CreatePEMs(serverIP string) (*PEMContainer, error) {
 	t.serverIP = serverIP
-	t.generateCertTemplates()
-
-	// Create Server Key PEM file for server side
-	serverKeyPEM, serverKey, err := t.generateKeyPEM()
+	rootKeyPEM, rootCertPEM, rootKey, rootTemplate, err := t.generateRootParts()
 	if err != nil {
 		return nil, err
 	}
 
-	// Create CA PEM file for client and server side
-	caCertPEM, err := t.generateCertPEM(t.serverCertTemplate, t.serverCertTemplate, &serverKey.PublicKey, serverKey)
+	serverKeyPEM, serverCertPEM, err := t.generateServerParts(rootTemplate, rootKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create Server Cert PEM file for server side
-	serverCertPEM, err := t.generateTLSCertPEM(caCertPEM, serverKeyPEM)
+	clientKeyPEM, clientCertPEM, err := t.generateClientParts(rootTemplate, rootKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create Client Key PEM file for client side
-	clientKeyPEM, clientKey, err := t.generateKeyPEM()
-	if err != nil {
-		return nil, err
-	}
-
-	clientCACertPEM, err := t.generateCertPEM(t.clientCertTemplate, t.serverCertTemplate, &clientKey.PublicKey, serverKey)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCertPEM, err := t.generateTLSCertPEM(clientCACertPEM, clientKeyPEM)
-	if err != nil {
-		return nil, err
-	}
-
-	return &PEMContainer{caCertPEM, clientCACertPEM, serverKeyPEM, serverCertPEM, clientKeyPEM, clientCertPEM}, nil
+	return &PEMContainer{
+		ServerCAPEM:   rootKeyPEM,
+		ClientCAPEM:   rootCertPEM,
+		ServerKeyPEM:  serverKeyPEM,
+		ClientKeyPEM:  clientKeyPEM,
+		ServerCertPEM: serverCertPEM,
+		ClientCertPEM: clientCertPEM,
+	}, nil
 }

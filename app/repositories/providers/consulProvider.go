@@ -142,7 +142,7 @@ func (p *ConsulProvider) registerProjects() error {
 
 		clientKey, _ := base64.StdEncoding.DecodeString(tls["client_key"].(string))
 		clientCert, _ := base64.StdEncoding.DecodeString(tls["client_cert"].(string))
-		clientCA, _ := base64.StdEncoding.DecodeString(tls["server_ca"].(string))
+		clientCA, _ := base64.StdEncoding.DecodeString(tls["client_ca"].(string))
 
 		containerHost.UseCerts([]byte(clientKey), []byte(clientCert), []byte(clientCA))
 

@@ -25,7 +25,7 @@ func NewTLSStorageRepo() TLSStorageRepo {
 		}
 		return repo
 	} else {
-		// TODO: consul 
+		// TODO: consul
 	}
 	panic("vault currently required")
 }

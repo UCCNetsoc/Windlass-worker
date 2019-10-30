@@ -59,7 +59,7 @@ func (service *ContainerHostService) CreateHost(ctx context.Context, name string
 		return err
 	}
 
-	if err := service.repo.PushAuthCerts(ctx, host.ContainerPushCertsOptions{containerName}, pems.ServerCAPEM, pems.ServerKeyPEM, pems.ServerCertPEM); err != nil {
+	if err := service.repo.PushAuthCerts(ctx, host.ContainerPushCertsOptions{containerName}, pems.ClientCAPEM, pems.ServerKeyPEM, pems.ServerCertPEM); err != nil {
 		return err
 	}
 
