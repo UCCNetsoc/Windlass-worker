@@ -3,13 +3,19 @@ package api
 import (
 	"net/http"
 
+	"github.com/99designs/basicauth-go"
+	"github.com/spf13/viper"
+
+	"github.com/UCCNetworkingSociety/Windlass-worker/middleware"
+
 	v1 "github.com/UCCNetworkingSociety/Windlass-worker/app/api/v1"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/api/models"
 	"github.com/go-chi/render"
 
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+
 	middlechi "github.com/go-chi/chi/middleware"
 )
 
@@ -34,6 +40,10 @@ func (api *API) Init() {
 			Status: http.StatusOK,
 		})
 	})
+
+	api.routes.Handle("/metrics", basicauth.New("banana", map[string][]string{
+		viper.GetString("http.basicauth.user"): {viper.GetString("http.basicauth.pass")},
+	})(promhttp.Handler()))
 
 	api.routes.Route("/v1", func(r chi.Router) {
 		v1.NewProjectEndpoints(r)

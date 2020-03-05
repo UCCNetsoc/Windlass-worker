@@ -221,12 +221,17 @@ func (p *ConsulProvider) updateProjectTTL(id, ip string, check func(ip string) (
 		for range ticker.C {
 			health := consul.HealthPassing
 			msg, healthy := check(ip)
-			log.WithFields(log.Fields{
-				"msg":     msg,
-				"healthy": healthy,
-			}).Info("docker daemon health check ping response")
+			logFields := log.WithFields(log.Fields{
+				"msg":         msg,
+				"healthy":     healthy,
+				"hostAddress": ip,
+			})
+
 			if !healthy {
 				health = consul.HealthCritical
+				logFields.Warn("docker daemon health check failed")
+			} else {
+				logFields.Debug("docker daemon health check success")
 			}
 			err := p.client.Agent().UpdateTTL("service:"+id, msg, health)
 			if err != nil {

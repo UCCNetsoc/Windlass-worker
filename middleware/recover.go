@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"runtime/debug"
 	"strings"
 
 	"github.com/Strum355/log"
@@ -42,7 +43,10 @@ func Recoverer(next http.Handler) http.Handler {
 		defer func() {
 			if r := recover(); r != nil {
 				panicLine := identifyPanic()
-				log.WithError(fmt.Errorf("%v at %s", r, panicLine)).Error("panic")
+				stack := debug.Stack()
+				log.WithError(fmt.Errorf("%v at %s", r, panicLine)).WithFields(log.Fields{
+					"stack": string(stack),
+				}).Error("panic")
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}()

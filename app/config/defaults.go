@@ -12,10 +12,12 @@ func InitDefaults() {
 	viper.SetDefault("http.port", "9786")
 	viper.SetDefault("http.hostname", getFQDN())
 	viper.SetDefault("http.address", getOutboundIP().String())
+	viper.SetDefault("http.basicauth.user", "")
+	viper.SetDefault("http.basicauth.pass", "")
 
 	viper.SetDefault("containerHost.type", "lxd")
 
-	viper.SetDefault("lxd.baseImage", "c4fad4b4dce1") // sample image
+	viper.SetDefault("lxd.baseImage", "057aa4f7dc09") // sample image
 
 	// Consul settings
 	viper.SetDefault("consul.url", "127.0.0.1:8500")

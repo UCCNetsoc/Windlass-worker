@@ -1,6 +1,6 @@
 package container
 
-type Containers []*Container
+type Containers []Container
 
 type Container struct {
 	// Name of the container

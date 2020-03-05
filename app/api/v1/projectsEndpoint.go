@@ -45,7 +45,7 @@ func (p *ProjectEndpoint) createProject(w http.ResponseWriter, r *http.Request) 
 
 	if err := p.hostService.CreateHost(r.Context(), newProject.HostName()); err != nil {
 		// TODO: curl wasnt showing body. why not?
-		log.WithError(err).Error("error creating host")
+		log.WithError(err).WithFields(log.Fields{"containerHost": newProject.HostName()}).Error("error creating host")
 		if err, ok := err.(host.Error); ok {
 			render.Render(w, r, models.APIResponse{
 				Status:  err.StatusCode,
@@ -58,5 +58,13 @@ func (p *ProjectEndpoint) createProject(w http.ResponseWriter, r *http.Request) 
 			Content: err.Error(),
 		})
 		return
+	}
+
+	if err := p.hostService.CreateServices(r.Context(), newProject.HostName(), newProject); err != nil {
+		log.WithError(err).WithFields(log.Fields{"containerHost": newProject.HostName()}).Error("error creating services")
+		render.Render(w, r, models.APIResponse{
+			Status:  http.StatusInternalServerError,
+			Content: err.Error(),
+		})
 	}
 }

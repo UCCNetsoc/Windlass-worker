@@ -8,8 +8,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+type PEMContainer struct {
+	ServerKeyPEM, ServerCertPEM, ClientKeyPEM, ClientCertPEM []byte
+}
+
 type TLSStorageRepo interface {
 	PushAuthCerts(ctx context.Context, key string, serverCAPEM, clientCAPEM, serverKeyPEM, serverCertPEM, clientKeyPEM, clientCertPEM []byte) error
+	// GetAuthCerts returns the TLS certs and keys for a given key.
+	GetAuthCerts(ctx context.Context, key string) (PEMContainer, error)
 }
 
 func NewTLSStorageRepo() TLSStorageRepo {

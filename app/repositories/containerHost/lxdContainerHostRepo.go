@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 
@@ -14,13 +16,12 @@ import (
 
 	lxd "github.com/lxc/lxd/client"
 
-	"go.uber.org/multierr"
-
 	"github.com/Strum355/log"
 
 	"github.com/spf13/viper"
 
 	"github.com/UCCNetworkingSociety/Windlass-worker/app/helpers"
+	"github.com/UCCNetworkingSociety/Windlass-worker/app/models/container"
 	"github.com/UCCNetworkingSociety/Windlass-worker/utils/writecloser"
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
@@ -68,7 +69,7 @@ func NewLXDRepository() ContainerHostRepository {
 	}
 }
 
-func (lxd *lxdHost) Ping(ctx context.Context) error {
+func (lxd *lxdHost) createDockerConn() error {
 	if lxd.dockerConn == nil {
 		client, err := docker.NewTLSClientFromBytes("https://"+lxd.ip, lxd.clientCertPEM, lxd.clientKeyPEM, lxd.caPEM)
 		if err != nil {
@@ -76,10 +77,16 @@ func (lxd *lxdHost) Ping(ctx context.Context) error {
 		}
 		lxd.dockerConn = client
 	}
+	return nil
+}
 
-	log.WithFields(log.Fields{
+func (lxd *lxdHost) Ping(ctx context.Context) error {
+	if err := lxd.createDockerConn(); err != nil {
+		return err
+	}
+	/* log.WithFields({
 		"ip": lxd.ip,
-	}).Info("pinging docker endpoint")
+	}).Info("pinging docker endpoint") */
 	return lxd.dockerConn.PingWithContext(ctx)
 }
 
@@ -95,7 +102,7 @@ func (lxd *lxdHost) parseError(err error) error {
 
 func (lxd *lxdHost) CreateContainerHost(ctx context.Context, opts ContainerHostCreateOptions) error {
 	log.WithFields(log.Fields{
-		"containerHostName": opts.Name,
+		"containerHost": opts.Name,
 	}).Debug("create container host request")
 
 	op, err := lxd.conn.CreateContainer(api.ContainersPost{
@@ -182,7 +189,9 @@ func (lxd *lxdHost) GetContainerHostIP(ctx context.Context, name string) (string
 }
 
 func (lxd *lxdHost) PushAuthCerts(ctx context.Context, opts ContainerPushCertsOptions, caPEM, serverKeyPEM, serverCertPEM []byte) error {
-	err := multierr.Combine(
+	var err *multierror.Error
+
+	multierror.Append(err,
 		errors.WithMessage(lxd.conn.CreateContainerFile(opts.Name, "/nginx/ca-cert.pem", lxdclient.ContainerFileArgs{
 			UID: 0, GID: 0, Content: bytes.NewReader(caPEM), Mode: 400, Type: "file", WriteMode: "overwrite",
 		}), "failed to push /nginx/ca-cert.pem"),
@@ -194,7 +203,7 @@ func (lxd *lxdHost) PushAuthCerts(ctx context.Context, opts ContainerPushCertsOp
 		}), "failed to push /nginx/server-cert.pem"),
 	)
 
-	return err
+	return err.ErrorOrNil()
 }
 
 func (lxd *lxdHost) UseCerts(clientKeyPEM, clientCertPEM, caPEM []byte) {
@@ -222,4 +231,70 @@ func (lxd *lxdHost) RestartNGINX(ctx context.Context, name string) error {
 		return err
 	}
 	return errors.WithMessage(err, fmt.Sprintf("error restarting nginx: %s", buf.String()))
+}
+
+func (lxd *lxdHost) CreateContainer(ctx context.Context, ctr container.Container) error {
+	if err := lxd.createDockerConn(); err != nil {
+		return err
+	}
+
+	mounts := make([]docker.Mount, 0, len(ctr.Mounts))
+
+	for _, mount := range ctr.Mounts {
+		mounts = append(mounts, docker.Mount{
+			Destination: mount.Destination,
+			Source:      mount.Source,
+			RW:          mount.RW,
+		})
+	}
+
+	env := make([]string, 0, len(ctr.Env))
+
+	for k, v := range ctr.Env {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	ports := make(map[docker.Port][]docker.PortBinding)
+
+	for _, portMap := range ctr.Ports {
+		ports[docker.Port(fmt.Sprintf("%d/tcp", portMap.ContainerPort))] = []docker.PortBinding{
+			{HostPort: fmt.Sprintf("%d", portMap.HostPort)},
+		}
+	}
+
+	splitImage := strings.Split(ctr.Image, ":")
+	if err := lxd.dockerConn.PullImage(docker.PullImageOptions{
+		Repository: ctr.Image,
+		Tag:        splitImage[len(splitImage)-1],
+	}, docker.AuthConfiguration{}); err != nil {
+		return fmt.Errorf("error pulling image: %w", err)
+	}
+
+	newCtr, err := lxd.dockerConn.CreateContainer(docker.CreateContainerOptions{
+		Context: ctx,
+		Name:    ctr.Name,
+		Config: &docker.Config{
+			Image:  ctr.Image,
+			Cmd:    []string{ctr.Command},
+			Labels: ctr.Labels,
+			Mounts: mounts,
+			Env:    env,
+		},
+		HostConfig: &docker.HostConfig{
+			PortBindings: ports,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("error creating container: %w", err)
+	}
+
+	log.WithFields(log.Fields{
+		"container": fmt.Sprintf("%#v", newCtr),
+	}).Info("created new container")
+
+	if err := lxd.dockerConn.StartContainer(newCtr.ID, nil); err != nil {
+		return fmt.Errorf("error starting container: %w", err)
+	}
+
+	return nil
 }

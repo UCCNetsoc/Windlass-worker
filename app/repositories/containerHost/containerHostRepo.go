@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/UCCNetworkingSociety/Windlass-worker/app/models/container"
+
 	"github.com/spf13/viper"
 )
 
@@ -17,6 +19,7 @@ type ContainerHostRepository interface {
 	StopContainerHost(ctx context.Context, opts ContainerHostStopOptions) error
 	PushAuthCerts(ctx context.Context, opts ContainerPushCertsOptions, caPEM, serverKeyPEM, serverCertPEM []byte) error
 	RestartNGINX(ctx context.Context, name string) error
+	CreateContainer(ctx context.Context, ctr container.Container) error
 }
 
 func NewContainerHostRepository() ContainerHostRepository {
