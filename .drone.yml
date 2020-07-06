@@ -52,7 +52,7 @@ steps:
       from_secret: github_token
   commands:
     - lsif-go
-    - src lsif upload -github-token=$${GITHUB_TOKEN} -ignore-upload-failures
+    - src lsif upload -github-token=$${GITHUB_TOKEN} -ignore-upload-failure
 
 - name: discord_notif_success
   image: appleboy/drone-discord
